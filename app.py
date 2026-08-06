@@ -36,6 +36,18 @@ init_db()
 def generate_random_key():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
 
+@app.route('/reset/<license_key>', methods=['POST'])
+def reset_license(license_key):
+    if session.get('is_admin'):
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('UPDATE licenses SET used = FALSE WHERE key = %s', (license_key,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        flash(f'ライセンス {license_key} を未使用に戻しました。', 'success')
+    return redirect(url_for('admin_dashboard'))
+    
 @app.route('/', methods=['GET', 'POST'])
 def claim_account():
     account_data = None
@@ -282,7 +294,7 @@ ADMIN_HTML = '''<!DOCTYPE html>
                         <td><code>{{ key }}</code></td>
                         <td>{{ data.email }}</td>
                         <td><code>{{ data.password }}</code></td>
-                        <td>
+<td>
                             {% if data.used %}
                                 <span class="badge-used">使用済み</span>
                             {% else %}
@@ -290,9 +302,16 @@ ADMIN_HTML = '''<!DOCTYPE html>
                             {% endif %}
                         </td>
                         <td>
-                            <form action="/delete/{{ key }}" method="POST" style="margin:0;">
-                                <button type="submit" style="background: #ff4444; padding: 6px 12px; font-size: 0.85rem;">削除</button>
-                            </form>
+                            <div style="display: flex; gap: 5px;">
+                                {% if data.used %}
+                                <form action="/reset/{{ key }}" method="POST" style="margin:0;">
+                                    <button type="submit" style="background: #1db954; padding: 6px 8px; font-size: 0.8rem;">再使用可</button>
+                                </form>
+                                {% endif %}
+                                <form action="/delete/{{ key }}" method="POST" style="margin:0;">
+                                    <button type="submit" style="background: #ff4444; padding: 6px 8px; font-size: 0.8rem;">削除</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% else %}
