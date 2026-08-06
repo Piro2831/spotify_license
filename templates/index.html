@@ -42,12 +42,13 @@
             <button type="submit">登録する</button>
         </form>
 
-        <h2>登録済みライセンス一覧</h2>
+<h2>登録済みライセンス一覧</h2>
         <table>
             <thead>
                 <tr>
                     <th>ライセンスキー</th>
                     <th>メールアドレス</th>
+                    <th>パスワード</th>
                     <th>状態</th>
                     <th>操作</th>
                 </tr>
@@ -57,22 +58,11 @@
                 <tr>
                     <td><code>{{ key }}</code></td>
                     <td>{{ data.email }}</td>
+                    <td><code>{{ data.password }}</code></td>
+                    <td>{{ "使用済み" if data.used else "未使用" }}</td>
                     <td>
-                        {% if data.used %}
-                            <span class="badge-used">使用済み</span>
-                        {% else %}
-                            <span class="badge-unused">未使用</span>
-                        {% endif %}
+                        <form action="/delete/{{ key }}" method="POST"><button type="submit">削除</button></form>
                     </td>
-                    <td>
-                        <form action="/delete/{{ key }}" method="POST" style="margin:0;">
-                            <button type="submit" style="background: #ff4444; padding: 5px 10px;">削除</button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="4" style="text-align: center; color: #888;">登録されているライセンスはありません。</td>
                 </tr>
                 {% endfor %}
             </tbody>
