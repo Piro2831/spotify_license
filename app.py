@@ -1,12 +1,37 @@
 import os
 import random
 import string
+import psycopg2
 from flask import Flask, render_template_string, request, redirect, url_for, flash, session
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'super_secret_key_for_session')
 
-licenses_db = {}
+# データベース接続情報の取得
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL, sslmode='require')
+
+# テーブルの初期化（起動時に存在しない場合は作成）
+def init_db():
+    if not DATABASE_URL:
+        return
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS licenses (
+            key TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            password TEXT NOT NULL,
+            used BOOLEAN NOT NULL DEFAULT FALSE
+        )
+    ''')
+    conn.commit()
+    cur.close()
+    conn.close()
+
+init_db()
 
 def generate_random_key():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
@@ -25,13 +50,23 @@ def claim_account():
             
         if not entered_key:
             error_msg = 'ライセンスキーを入力してください。'
-        elif entered_key not in licenses_db:
-            error_msg = '無効なライセンスキーです。'
-        elif licenses_db[entered_key]['used']:
-            error_msg = 'このライセンスキーはすでに使用されています。'
         else:
-            licenses_db[entered_key]['used'] = True
-            account_data = licenses_db[entered_key]
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute('SELECT email, password, used FROM licenses WHERE key = %s', (entered_key,))
+            row = cur.fetchone()
+            
+            if not row:
+                error_msg = '無効なライセンスキーです。'
+            elif row[2]:
+                error_msg = 'このライセンスキーはすでに使用されています。'
+            else:
+                cur.execute('UPDATE licenses SET used = TRUE WHERE key = %s', (entered_key,))
+                conn.commit()
+                account_data = {'email': row[0], 'password': row[1]}
+            
+            cur.close()
+            conn.close()
             
     return render_template_string(CLIENT_HTML, account=account_data, error=error_msg)
 
@@ -39,7 +74,19 @@ def claim_account():
 def admin_dashboard():
     if not session.get('is_admin'):
         return redirect(url_for('claim_account'))
-    return render_template_string(ADMIN_HTML, licenses=licenses_db)
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT key, email, password, used FROM licenses')
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    
+    licenses_dict = {}
+    for row in rows:
+        licenses_dict[row[0]] = {'email': row[1], 'password': row[2], 'used': row[3]}
+        
+    return render_template_string(ADMIN_HTML, licenses=licenses_dict)
 
 @app.route('/add', methods=['POST'])
 def add_license():
@@ -51,14 +98,24 @@ def add_license():
     
     if email and password:
         new_key = generate_random_key()
-        licenses_db[new_key] = {'email': email, 'password': password, 'used': False}
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('INSERT INTO licenses (key, email, password, used) VALUES (%s, %s, %s, FALSE)', (new_key, email, password))
+        conn.commit()
+        cur.close()
+        conn.close()
         flash(f'新しいライセンスを発行しました: {new_key}', 'success')
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/delete/<license_key>', methods=['POST'])
 def delete_license(license_key):
-    if session.get('is_admin') and license_key in licenses_db:
-        del licenses_db[license_key]
+    if session.get('is_admin'):
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('DELETE FROM licenses WHERE key = %s', (license_key,))
+        conn.commit()
+        cur.close()
+        conn.close()
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/logout')
