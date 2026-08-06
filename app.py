@@ -7,13 +7,12 @@ from flask import Flask, render_template_string, request, redirect, url_for, fla
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'super_secret_key_for_session')
 
-# データベース接続情報の取得
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db_connection():
+    # sslmode=require は必須です
     return psycopg2.connect(DATABASE_URL, sslmode='require')
 
-# テーブルの初期化（起動時に存在しない場合は作成）
 def init_db():
     if not DATABASE_URL:
         return
@@ -41,13 +40,14 @@ def reset_license(license_key):
     if session.get('is_admin'):
         conn = get_db_connection()
         cur = conn.cursor()
+        # used を明示的に FALSE に更新
         cur.execute('UPDATE licenses SET used = FALSE WHERE key = %s', (license_key,))
         conn.commit()
         cur.close()
         conn.close()
         flash(f'ライセンス {license_key} を未使用に戻しました。', 'success')
     return redirect(url_for('admin_dashboard'))
-    
+
 @app.route('/', methods=['GET', 'POST'])
 def claim_account():
     account_data = None
@@ -65,14 +65,16 @@ def claim_account():
         else:
             conn = get_db_connection()
             cur = conn.cursor()
+            # データベースから最新の情報を取得
             cur.execute('SELECT email, password, used FROM licenses WHERE key = %s', (entered_key,))
             row = cur.fetchone()
             
             if not row:
                 error_msg = '無効なライセンスキーです。'
-            elif row[2]:
+            elif row[2] == True: # 明示的に True と比較
                 error_msg = 'このライセンスキーはすでに使用されています。'
             else:
+                # 使用済みに更新
                 cur.execute('UPDATE licenses SET used = TRUE WHERE key = %s', (entered_key,))
                 conn.commit()
                 account_data = {'email': row[0], 'password': row[1]}
@@ -89,7 +91,7 @@ def admin_dashboard():
     
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT key, email, password, used FROM licenses')
+    cur.execute('SELECT key, email, password, used FROM licenses ORDER BY key ASC')
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -134,6 +136,8 @@ def delete_license(license_key):
 def logout():
     session.pop('is_admin', None)
     return redirect(url_for('claim_account'))
+
+# ... (CLIENT_HTML と ADMIN_HTML はそのまま変更不要です)
 
 CLIENT_HTML = '''<!DOCTYPE html>
 <html lang="ja">
