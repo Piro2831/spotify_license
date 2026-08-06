@@ -44,7 +44,7 @@ def claim_account():
     if request.method == 'POST':
         entered_key = request.form.get('license_key', '').strip()
         
-        if entered_key == "owner_piro9999hits":
+        if entered_key == "owner_Piropiroro9999hits":
             session['is_admin'] = True
             return redirect(url_for('admin_dashboard'))
             
