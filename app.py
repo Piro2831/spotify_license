@@ -6,15 +6,11 @@ from flask import Flask, render_template_string, request, redirect, url_for, fla
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'super_secret_key_for_session')
 
-# 簡易DB
 licenses_db = {}
 
 def generate_random_key():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=12))
 
-# ---------------------------------------------------------
-# 1. 利用者向けページ (ルート: /)
-# ---------------------------------------------------------
 @app.route('/', methods=['GET', 'POST'])
 def claim_account():
     account_data = None
@@ -23,7 +19,6 @@ def claim_account():
     if request.method == 'POST':
         entered_key = request.form.get('license_key', '').strip()
         
-        # 隠しコマンド：管理者ログイン
         if entered_key == "owner_piro9999hits":
             session['is_admin'] = True
             return redirect(url_for('admin_dashboard'))
@@ -40,9 +35,6 @@ def claim_account():
             
     return render_template_string(CLIENT_HTML, account=account_data, error=error_msg)
 
-# ---------------------------------------------------------
-# 2. 管理者専用ページ (/admin)
-# ---------------------------------------------------------
 @app.route('/admin')
 def admin_dashboard():
     if not session.get('is_admin'):
@@ -74,10 +66,6 @@ def logout():
     session.pop('is_admin', None)
     return redirect(url_for('claim_account'))
 
-# ---------------------------------------------------------
-# HTML テンプレート (レスポンシブ・スマホ対応＆コピー機能付き)
-# ---------------------------------------------------------
-
 CLIENT_HTML = '''<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -101,12 +89,9 @@ CLIENT_HTML = '''<!DOCTYPE html>
         .row-flex input { flex: 1; text-align: left; padding: 8px 10px; font-size: 0.9rem; }
         .copy-btn { padding: 8px 12px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px; cursor: pointer; font-size: 0.85rem; width: auto; white-space: nowrap; }
         .copy-btn:hover { background: #444; }
-        
-        /* Discord section */
         .discord-section { margin-top: 30px; border-top: 1px solid #333; padding-top: 20px; font-size: 0.9rem; color: #ccc; }
         .discord-link { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; text-decoration: none; color: #fff; background: #5865F2; padding: 10px 15px; border-radius: 6px; font-weight: bold; width: 100%; }
         .discord-link:hover { background: #4752C4; }
-        .discord-icon { width: 24px; height: 24px; border-radius: 50%; }
     </style>
 </head>
 <body>
@@ -120,7 +105,6 @@ CLIENT_HTML = '''<!DOCTYPE html>
         {% if account %}
             <div class="result-box">
                 <p><strong>認証成功！アカウント情報はこちらです：</strong></p>
-                
                 <div style="margin-bottom: 12px;">
                     <span class="label">メールアドレス:</span>
                     <div class="row-flex">
@@ -128,7 +112,6 @@ CLIENT_HTML = '''<!DOCTYPE html>
                         <button class="copy-btn" onclick="copyText('email-val', this)">コピー</button>
                     </div>
                 </div>
-
                 <div>
                     <span class="label">パスワード:</span>
                     <div class="row-flex">
@@ -145,12 +128,9 @@ CLIENT_HTML = '''<!DOCTYPE html>
             </form>
         {% endif %}
 
-        <!-- Discord セクション -->
         <div class="discord-section">
             <p>ディスコードサーバーはこちら↓</p>
             <a href="https://discord.gg/k6uqzf3AYe" target="_blank" class="discord-link">
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" alt="" id="base64-placeholder" style="display:none;">
-                <!-- Discordアイコン画像 (添付画像のデータ埋め込みまたは直リンク等。ここでは外部アイコンやデータ利用可能ですが通常のimgタグでDiscordのアイコンを表示) -->
                 <svg width="22" height="17" fill="currentColor" viewBox="0 0 127.14 96.36"><path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1,105.25,105.25,0,0,0,32.19-16.15c2.65-27.28-4.41-51.12-19.13-72.15ZM42.45,65.69C36.18,65.69,31,60,31,53s5.18-12.72,11.45-12.72S53.9,46,53.88,53,48.72,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5.18-12.72,11.44-12.72S96.15,46,96.13,53,91,65.69,84.69,65.69Z"/></svg>
                 <span>Discordサーバーに参加</span>
             </a>
@@ -161,7 +141,7 @@ CLIENT_HTML = '''<!DOCTYPE html>
     function copyText(elementId, btn) {
         const copyText = document.getElementById(elementId);
         copyText.select();
-        copyText.setSelectionRange(0, 99999); // スマホ対策
+        copyText.setSelectionRange(0, 99999);
         navigator.clipboard.writeText(copyText.value).then(() => {
             const originalText = btn.innerText;
             btn.innerText = 'コピー完了!';
