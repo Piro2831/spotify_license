@@ -2,11 +2,28 @@ import os
 import random
 import string
 import psycopg2
+import threading
+import time
+import requests
 from flask import Flask, render_template_string, request, redirect, url_for, flash, session
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'super_secret_key_for_session')
+def keep_alive():
+    # 自分のURLをここに記述してください
+    URL = "https://spotify-license.onrender.com/" 
+    while True:
+        try:
+            requests.get(URL)
+            print("Self-ping sent.")
+        except Exception as e:
+            print(f"Ping failed: {e}")
+        # 10分（600秒）おきにアクセス
+        time.sleep(400)
 
+# スレッドを開始
+thread = threading.Thread(target=keep_alive, daemon=True)
+thread.start()
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def get_db_connection():
